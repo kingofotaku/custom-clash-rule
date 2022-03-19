@@ -554,3 +554,4 @@ URL-REGEX,(.+.)?(torrent|announce.php?passkey=|tracker|BitTorrent|bt_key|ed2k|fi
 DOMAIN-KEYWORD,tracker
 DOMAIN-KEYWORD,announce
 DOMAIN-KEYWORD,BitTorrent
+DOMAIN-KEYWORD,torrent
