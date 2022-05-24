@@ -2,9 +2,8 @@
 DOMAIN-SUFFIX,workers.dev
 DOMAIN-SUFFIX,haishan.me
 # 机场节点域名直连
-DOMAIN-KEYWORD,dotunnel
-DOMAIN-KEYWORD,dywr.org
-DOMAIN-KEYWORD,54dywr
+DOMAIN-KEYWORD,ddns.cyou
+DOMAIN-SUFFIX,03ddns.cyou
 
 # Trackers
 DOMAIN-KEYWORD,.awesome-hd.me
