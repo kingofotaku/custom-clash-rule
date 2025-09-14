@@ -11,6 +11,7 @@ DOMAIN-KEYWORD,cloudflareinsights
 DOMAIN-SUFFIX,workers.dev
 DOMAIN-SUFFIX,haishan.me
 # 机场节点域名直连
+DOMAIN-KEYWORD,xtunnel.
 DOMAIN-KEYWORD,ddns.cyou
 DOMAIN-SUFFIX,03ddns.cyou
 
@@ -588,3 +589,4 @@ IP-CIDR,212.1.226.176/32,no-resolve
 IP-CIDR,212.47.227.58/32,no-resolve
 IP-CIDR,213.159.215.198/32,no-resolve
 IP-CIDR,213.163.67.56/32,no-resolve
+
