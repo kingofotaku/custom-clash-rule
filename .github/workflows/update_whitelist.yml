@@ -39,4 +39,4 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add airport_nodes.yaml
           # 仅当文件有变动时才提交
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update airport whitelist IPs" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update airport whitelist IPs" && git pull --rebase && git push)
