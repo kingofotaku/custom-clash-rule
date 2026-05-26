@@ -1,0 +1,21 @@
+proxies:
+  - name: "套餐到期: 2026-10-03"
+    type: vmess
+    server: 127.0.0.1
+    port: 80
+  - name: "剩余流量: 250.68GB"
+    type: ss
+    server: 8.8.8.8
+    port: 443
+  - name: "永久网址"
+    type: trojan
+    server: nbvpn.top
+    port: 443
+  - name: "Hongkong 1"
+    type: ss
+    server: hk1.example.com
+    port: 443
+  - name: "Japan 1"
+    type: trojan
+    server: jp.example.com
+    port: 443
