@@ -5,6 +5,7 @@ import requests
 import base64
 import urllib.parse
 import ipaddress
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 def is_valid_ip(ip_str):
@@ -40,10 +41,14 @@ def get_ips_from_domain(domain):
 def parse_clash_yaml(content):
     """解析 Clash YAML 提取 server"""
     servers = set()
+    exclude_pattern = re.compile(r"(?i)(剩余|套餐|直连|meta|永久网址|到期)")
     try:
         config = yaml.safe_load(content)
         if config and 'proxies' in config:
             for proxy in config['proxies']:
+                name = proxy.get('name', '')
+                if exclude_pattern.search(name):
+                    continue
                 server = proxy.get('server')
                 if server:
                     servers.add(server)
