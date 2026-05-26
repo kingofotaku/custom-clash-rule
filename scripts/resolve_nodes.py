@@ -4,7 +4,22 @@ import socket
 import requests
 import base64
 import urllib.parse
+import ipaddress
 from concurrent.futures import ThreadPoolExecutor
+
+def is_valid_ip(ip_str):
+    """过滤掉机场用于提示节点的无效 IP 或公共 DNS"""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.is_private or ip.is_loopback or ip.is_multicast or ip.is_unspecified:
+            return False
+        # 排除经常被用作 dummy 节点的 DNS IP
+        dummy_ips = {'1.1.1.1', '8.8.8.8', '8.8.4.4', '1.0.0.1', '255.255.255.255', '0.0.0.0'}
+        if str(ip) in dummy_ips:
+            return False
+        return True
+    except ValueError:
+        return False
 
 def get_ips_from_domain(domain):
     """解析域名获取 IP 列表"""
@@ -16,7 +31,8 @@ def get_ips_from_domain(domain):
         results = socket.getaddrinfo(domain, None)
         for result in results:
             ip = result[4][0]
-            ips.add(ip)
+            if is_valid_ip(ip):
+                ips.add(ip)
     except Exception as e:
         print(f"Failed to resolve {domain}: {e}")
     return ips
@@ -46,6 +62,7 @@ def process_subscription(url):
     try:
         resp = requests.get(url, headers=headers, timeout=30)
         resp.raise_for_status()
+        resp.encoding = 'utf-8'
         content = resp.text
         
         # 尝试作为 YAML 解析
