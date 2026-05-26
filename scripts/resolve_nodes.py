@@ -6,7 +6,6 @@ import base64
 import urllib.parse
 import ipaddress
 import re
-import dns.resolver
 from concurrent.futures import ThreadPoolExecutor
 
 def is_valid_ip(ip_str):
@@ -24,7 +23,7 @@ def is_valid_ip(ip_str):
         return False
 
 def get_ips_from_domain(domain):
-    """解析域名获取 IP 列表 (支持 v4/v6，带重试和回退机制)"""
+    """解析域名获取 IP 列表 (使用 socket 原生解析，支持 v4/v6，带重试和回退机制)"""
     ips = set()
     
     # 如果本身已经是合法的 IP，则直接返回
@@ -35,44 +34,28 @@ def get_ips_from_domain(domain):
     except Exception:
         pass
         
-    resolver = dns.resolver.Resolver(configure=False)
-    resolver.nameservers = ['8.8.8.8', '1.1.1.1', '223.5.5.5']
-    resolver.timeout = 2
-    resolver.lifetime = 3
-    
     max_retries = 3
     success = False
     
     for attempt in range(max_retries):
         try:
-            # IPv4 解析
-            try:
-                ans_a = resolver.resolve(domain, 'A')
-                for rdata in ans_a:
-                    ip = rdata.to_text()
-                    if is_valid_ip(ip):
-                        ips.add(ip)
+            # socket.AF_UNSPEC (0) 会同时请求 A 和 AAAA 记录
+            results = socket.getaddrinfo(domain, None, family=socket.AF_UNSPEC)
+            for result in results:
+                ip = result[4][0]
+                if is_valid_ip(ip):
+                    ips.add(ip)
+            
+            if ips: # 如果至少拿到了一个合法的 IP，就视为解析成功
                 success = True
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-                pass
-                
-            # IPv6 解析
-            try:
-                ans_aaaa = resolver.resolve(domain, 'AAAA')
-                for rdata in ans_aaaa:
-                    ip = rdata.to_text()
-                    if is_valid_ip(ip):
-                        ips.add(ip)
-                success = True
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-                pass
-                
-            if success:
                 break
                 
+        except socket.gaierror as e:
+            # 域名解析失败
+            pass
         except Exception as e:
             if attempt == max_retries - 1:
-                print(f"Failed to resolve {domain} after {max_retries} attempts.")
+                print(f"Failed to resolve {domain} after {max_retries} attempts: {e}")
                 
     if not success and not ips:
         # 重试结束后仍无 IP，则回退保留原始域名
