@@ -60,8 +60,8 @@ def process_subscription(url):
     """处理单个订阅链接"""
     servers = set()
     headers = {
-        # 伪装成 Clash 客户端，触发机场下发 Clash 格式配置
-        'User-Agent': 'ClashforWindows/0.19.0'
+        # 伪装成 Clash Meta 客户端，触发机场下发完整节点配置
+        'User-Agent': 'clash.meta'
     }
     print(f"Fetching: {url}")
     try:
@@ -73,16 +73,19 @@ def process_subscription(url):
         # 尝试作为 YAML 解析
         parsed_servers = parse_clash_yaml(content)
         if parsed_servers:
-            print(f"Parsed {len(parsed_servers)} servers as YAML.")
+            print(f"Parsed {len(parsed_servers)} unique server domains as YAML.")
             servers.update(parsed_servers)
         else:
-            # 如果不是 YAML，可能是 Base64 编码的 vmess/ss 链接，简单做后备处理
+            print("Content is not valid Clash YAML or contains 0 proxies. Attempting Base64 decode...")
+            # 补齐 base64 padding
+            padding_needed = len(content) % 4
+            if padding_needed:
+                content += '=' * (4 - padding_needed)
             try:
                 decoded = base64.b64decode(content).decode('utf-8')
-                # 简单粗暴正则或者分行提取 (这只是一个简单的 fallback)
-                print("Content might be base64. Base64 processing not fully implemented. Please ensure airport supports Clash UA.")
-            except:
-                pass
+                print(f"Successfully decoded Base64, found {len(decoded.splitlines())} lines. Base64 parsing not fully implemented yet, only YAML is supported.")
+            except Exception as e:
+                print(f"Not Base64 either. First 100 chars of response: {content[:100]}")
     except Exception as e:
         print(f"Failed to fetch {url}: {e}")
     
