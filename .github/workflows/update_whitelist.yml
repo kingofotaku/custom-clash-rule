@@ -1,4 +1,4 @@
-﻿name: Update Airport Whitelist Nodes
+﻿name: Update ip
 
 on:
   schedule:
