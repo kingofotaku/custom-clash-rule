@@ -1,6 +1,6 @@
 ﻿name: Update Airport Whitelist Nodes
 
-于:
+on:
   schedule:
     # 姣忓ぉ 00:00 鍜?12:00 UTC 鎵ц (鍖椾含鏃堕棿 08:00 鍜?20:00)
     - cron: '0 0,12 * * *'
