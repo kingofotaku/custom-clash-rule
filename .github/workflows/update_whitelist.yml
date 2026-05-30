@@ -1,6 +1,6 @@
 ﻿name: Update Airport Whitelist Nodes
 
-on:
+于:
   schedule:
     # 姣忓ぉ 00:00 鍜?12:00 UTC 鎵ц (鍖椾含鏃堕棿 08:00 鍜?20:00)
     - cron: '0 0,12 * * *'
@@ -39,7 +39,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add custom_routes.yaml
           if ! git diff --staged --quiet; then
-            git commit -m "Auto-update airport whitelist IPs"
+            git commit -m "Scheduled Updates"
             git fetch origin master
             git rebase origin/master
             git push origin HEAD:master
