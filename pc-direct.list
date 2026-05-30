@@ -1,16 +1,6 @@
 # 其他
 DOMAIN-SUFFIX,workers.dev
 DOMAIN-KEYWORD,libvio
-# 机场节点域名直连
-DOMAIN-KEYWORD,dotunnel
-DOMAIN-KEYWORD,dywr.org
-DOMAIN-KEYWORD,54dywr
-DOMAIN-KEYWORD,xtunnel
-DOMAIN-KEYWORD,cyccyh
-DOMAIN-KEYWORD,ai54321
-DOMAIN-KEYWORD,gx.lia
-DOMAIN-KEYWORD,ccooz.top
-DOMAIN-KEYWORD,neurix.cc
 # 迅雷
 DOMAIN-KEYWORD,8uri.cn
 DOMAIN-KEYWORD,gigaget.com
