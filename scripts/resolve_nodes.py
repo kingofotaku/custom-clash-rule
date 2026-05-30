@@ -181,20 +181,31 @@ def main():
     # 写入 Rule-Provider 文件
     output_file = 'airport_nodes.yaml'
     
-    # 按照 IP 排序输出
-    sorted_ips = sorted(list(all_ips))
+    masked_items = set()
+    for item in all_ips:
+        if item.startswith("DOMAIN:"):
+            masked_items.add(f"DOMAIN,{item.split(':', 1)[1]}")
+        else:
+            try:
+                # 模糊化 IP (IPv4 -> /24, IPv6 -> /64) 以保护隐私
+                if ':' in item:
+                    net = ipaddress.IPv6Interface(f"{item}/64").network.with_prefixlen
+                    masked_items.add(f"IP-CIDR6,{net}")
+                else:
+                    net = ipaddress.IPv4Interface(f"{item}/24").network.with_prefixlen
+                    masked_items.add(f"IP-CIDR,{net}")
+            except Exception:
+                pass
+                
+    # 按照规则排序输出
+    sorted_masked = sorted(list(masked_items))
     
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("payload:\n")
-        for item in sorted_ips:
-            if item.startswith("DOMAIN:"):
-                f.write(f"  - DOMAIN,{item.split(':', 1)[1]}\n")
-            elif ':' in item:
-                f.write(f"  - IP-CIDR6,{item}/128\n")
-            else:
-                f.write(f"  - IP-CIDR,{item}/32\n")
+        for item in sorted_masked:
+            f.write(f"  - {item}\n")
                 
-    print(f"Successfully wrote {len(sorted_ips)} IPs to {output_file}")
+    print(f"Successfully wrote {len(sorted_masked)} IPs to {output_file}")
 
 if __name__ == '__main__':
     main()
