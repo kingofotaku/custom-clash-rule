@@ -94,8 +94,11 @@ def get_ips_from_domain(domain):
                 print(f"dnspython failed to resolve {domain}: {e}")
                 
     if not success and not ips:
-        # 两种方法都失败，回退保留原始域名
-        ips.add(f"DOMAIN:{domain}")
+        # 两种方法都失败，回退保留原始域名 (IP 字面量除外，DOMAIN 规则匹配不了 IP)
+        try:
+            ipaddress.ip_address(domain)
+        except ValueError:
+            ips.add(f"DOMAIN:{domain}")
         
     return ips
 
@@ -263,6 +266,13 @@ def main():
             except Exception:
                 pass
                 
+    # 原始域名也加入白名单 (部分代理工具直接把域名交给路由器，此时没有 IP 可匹配)
+    for server in all_servers:
+        try:
+            ipaddress.ip_address(server)
+        except ValueError:
+            masked_items.add(f"DOMAIN,{server}")
+
     # 按照规则排序输出
     sorted_masked = sorted(list(masked_items))
     
@@ -271,7 +281,7 @@ def main():
         for item in sorted_masked:
             f.write(f"  - {item}\n")
                 
-    print(f"Successfully wrote {len(sorted_masked)} IPs to {output_file}")
+    print(f"Successfully wrote {len(sorted_masked)} rules to {output_file}")
 
 if __name__ == '__main__':
     main()
