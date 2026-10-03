@@ -1,4 +1,5 @@
-﻿import os
+import os
+import json
 import yaml
 import socket
 import requests
@@ -10,12 +11,12 @@ import dns.resolver
 from concurrent.futures import ThreadPoolExecutor
 
 def is_valid_ip(ip_str):
-    """杩囨护鎺夋満鍦虹敤浜庢彁绀鸿妭鐐圭殑鏃犳晥 IP 鎴栧叕鍏?DNS"""
+    """过滤掉机场用于提示节点的无效 IP 或公共 DNS"""
     try:
         ip = ipaddress.ip_address(ip_str)
         if ip.is_private or ip.is_loopback or ip.is_multicast or ip.is_unspecified:
             return False
-        # 鎺掗櫎缁忓父琚敤浣?dummy 鑺傜偣鐨?DNS IP
+        # 排除经常被用作 dummy 节点的 DNS IP
         dummy_ips = {'1.1.1.1', '8.8.8.8', '8.8.4.4', '1.0.0.1', '255.255.255.255', '0.0.0.0'}
         if str(ip) in dummy_ips:
             return False
@@ -24,7 +25,7 @@ def is_valid_ip(ip_str):
         return False
 
 def get_ips_from_domain(domain):
-    """瑙ｆ瀽鍩熷悕鑾峰彇 IP 鍒楄〃 (缁撳悎 socket 鍘熺敓瑙ｆ瀽涓?dnspython 鍏叡 DNS 瑙ｆ瀽锛屾渶澶у寲鎻愬彇 IP锛屾敮鎸?v4/v6)"""
+    """解析域名获取 IP 列表 (结合 socket 原生解析与 dnspython 公共 DNS 解析，最大化提取 IP，支持 v4/v6)"""
     ips = set()
     
     try:
@@ -37,7 +38,7 @@ def get_ips_from_domain(domain):
     success = False
     max_retries = 3
     
-    # 鏂规硶 1锛氬師鐢?Socket 瑙ｆ瀽 (鍒╃敤绯荤粺 DNS 鑾峰彇鏈€浼?CDN 鑺傜偣)
+    # 方法 1：原生 Socket 解析 (利用系统 DNS 获取最优 CDN 节点)
     for attempt in range(max_retries):
         try:
             results = socket.getaddrinfo(domain, None, family=socket.AF_UNSPEC)
@@ -51,7 +52,7 @@ def get_ips_from_domain(domain):
         except Exception:
             pass
 
-    # 鏂规硶 2锛歞nspython 鎸囧畾鍏叡 DNS 瑙ｆ瀽 (鑾峰彇鍏ㄥ眬 Anycast 鑺傜偣)
+    # 方法 2：dnspython 指定公共 DNS 解析 (获取全局 Anycast 节点)
     resolver = dns.resolver.Resolver(configure=False)
     resolver.nameservers = ['8.8.8.8', '1.1.1.1', '223.5.5.5']
     resolver.timeout = 2
@@ -60,7 +61,7 @@ def get_ips_from_domain(domain):
     for attempt in range(max_retries):
         try:
             dns_success = False
-            # IPv4 瑙ｆ瀽
+            # IPv4 解析
             try:
                 ans_a = resolver.resolve(domain, 'A')
                 for rdata in ans_a:
@@ -71,7 +72,7 @@ def get_ips_from_domain(domain):
             except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
                 pass
                 
-            # IPv6 瑙ｆ瀽
+            # IPv6 解析
             try:
                 ans_aaaa = resolver.resolve(domain, 'AAAA')
                 for rdata in ans_aaaa:
@@ -91,15 +92,15 @@ def get_ips_from_domain(domain):
                 print(f"dnspython failed to resolve {domain}: {e}")
                 
     if not success and not ips:
-        # 涓ょ鏂规硶閮藉け璐ワ紝鍥為€€淇濈暀鍘熷鍩熷悕
+        # 两种方法都失败，回退保留原始域名
         ips.add(f"DOMAIN:{domain}")
         
     return ips
 
 def parse_clash_yaml(content):
-    """瑙ｆ瀽 Clash YAML 鎻愬彇 server"""
+    """解析 Clash YAML 提取 server"""
     servers = set()
-    exclude_pattern = re.compile(r"(?i)(鍓╀綑|濂楅|鐩磋繛|meta|姘镐箙缃戝潃|鍒版湡)")
+    exclude_pattern = re.compile(r"(?i)(剩余|套餐|直连|meta|永久网址|到期)")
     try:
         config = yaml.safe_load(content)
         if config and 'proxies' in config:
@@ -114,11 +115,55 @@ def parse_clash_yaml(content):
         print(f"YAML parsing error: {e}")
     return servers
 
+def parse_node_uris(content):
+    """从 base64 解码后的分享链接中提取 server (支持 ss / vmess / trojan / vless / hysteria2 / tuic)"""
+    servers = set()
+    for line in content.splitlines():
+        line = line.strip()
+        if '://' not in line:
+            continue
+        scheme, _, body = line.partition('://')
+        scheme = scheme.lower()
+        try:
+            if scheme == 'vmess':
+                # vmess://base64(JSON)，host 在 add 字段
+                body = body.split('#', 1)[0]
+                info = json.loads(base64.b64decode(body + '=' * (-len(body) % 4)))
+                host = info.get('add') or ''
+            elif scheme == 'ss':
+                # 两种形式: ss://base64(method:pass)@host:port 或 ss://base64(method:pass@host:port)
+                body = body.split('#', 1)[0]
+                if '@' not in body:
+                    body = base64.b64decode(body + '=' * (-len(body) % 4)).decode('utf-8')
+                host = urllib.parse.urlsplit('//' + body).hostname or ''
+            else:
+                # trojan / vless / hysteria2 / tuic 等标准 URL 形式
+                host = urllib.parse.urlsplit(line).hostname or ''
+            host = str(host).strip()
+            if re.fullmatch(r'[0-9A-Za-z._:\[\]-]+', host):
+                servers.add(host)
+        except Exception:
+            continue
+    return servers
+
+def decode_base64_text(content):
+    """尝试把订阅内容按 Base64 解码为文本 (容忍换行与缺失 padding)"""
+    text = re.sub(r'\s+', '', content)
+    if not text:
+        return None
+    text += '=' * (-len(text) % 4)
+    for candidate in (text, text.replace('-', '+').replace('_', '/')):
+        try:
+            return base64.b64decode(candidate).decode('utf-8')
+        except Exception:
+            continue
+    return None
+
 def process_subscription(url):
-    """澶勭悊鍗曚釜璁㈤槄閾炬帴"""
+    """处理单个订阅链接"""
     servers = set()
     headers = {
-        # 浼鎴?Clash Meta 瀹㈡埛绔紝瑙﹀彂鏈哄満涓嬪彂瀹屾暣鑺傜偣閰嶇疆
+        # 伪装成 Clash Meta 客户端，触发机场下发完整节点配置
         'User-Agent': 'clash.meta'
     }
     print(f"Fetching: {url}")
@@ -128,39 +173,38 @@ def process_subscription(url):
         resp.encoding = 'utf-8'
         content = resp.text
         
-        # 灏濊瘯浣滀负 YAML 瑙ｆ瀽
+        # 尝试作为 YAML 解析
         parsed_servers = parse_clash_yaml(content)
         if parsed_servers:
             print(f"Parsed {len(parsed_servers)} unique server domains as YAML.")
             servers.update(parsed_servers)
         else:
             print("Content is not valid Clash YAML or contains 0 proxies. Attempting Base64 decode...")
-            # 琛ラ綈 base64 padding
-            padding_needed = len(content) % 4
-            if padding_needed:
-                content += '=' * (4 - padding_needed)
-            try:
-                decoded = base64.b64decode(content).decode('utf-8')
-                print(f"Successfully decoded Base64, found {len(decoded.splitlines())} lines. Base64 parsing not fully implemented yet, only YAML is supported.")
-            except Exception as e:
+            # 部分机场对非 Clash 客户端下发 base64 内容，解码后可能是 YAML 或节点分享链接
+            decoded = decode_base64_text(content)
+            if decoded is None:
                 print(f"Not Base64 either. First 100 chars of response: {content[:100]}")
+            else:
+                parsed_servers = parse_clash_yaml(decoded) or parse_node_uris(decoded)
+                if parsed_servers:
+                    print(f"Parsed {len(parsed_servers)} unique servers from Base64 content.")
+                    servers.update(parsed_servers)
+                else:
+                    print("Base64 decoded, but no servers found inside.")
     except Exception as e:
         print(f"Failed to fetch {url}: {e}")
     
     return servers
 
 def main():
-    airport1 = os.environ.get('AIRPORT1', '').strip()
-    airport2 = os.environ.get('AIRPORT2', '').strip()
-    
     urls = []
-    if airport1:
-        urls.append(airport1)
-    if airport2:
-        urls.append(airport2)
-        
+    for i in range(1, 10):
+        url = os.environ.get(f'AIRPORT{i}', '').strip()
+        if url:
+            urls.append(url)
+
     if not urls:
-        print("No AIRPORT1 or AIRPORT2 found in environment variables.")
+        print("No AIRPORT1-AIRPORT9 found in environment variables.")
         return
     
     all_servers = set()
@@ -170,7 +214,7 @@ def main():
     print(f"Total unique servers extracted: {len(all_servers)}")
     
     all_ips = set()
-    # 浣跨敤绾跨▼姹犲苟鍙戣В鏋?DNS
+    # 使用线程池并发解析 DNS
     with ThreadPoolExecutor(max_workers=20) as executor:
         results = executor.map(get_ips_from_domain, all_servers)
         for ips in results:
@@ -178,7 +222,7 @@ def main():
             
     print(f"Total unique IPs resolved: {len(all_ips)}")
     
-    # 鍐欏叆 Rule-Provider 鏂囦欢
+    # 写入 Rule-Provider 文件
     output_file = 'custom_routes.yaml'
     
     masked_items = set()
@@ -187,7 +231,7 @@ def main():
             masked_items.add(f"DOMAIN,{item.split(':', 1)[1]}")
         else:
             try:
-                # 妯＄硦鍖?IP (IPv4 -> /24, IPv6 -> /64) 浠ヤ繚鎶ら殣绉?
+                # 模糊化 IP (IPv4 -> /24, IPv6 -> /64) 以保护隐私
                 if ':' in item:
                     net = ipaddress.IPv6Interface(f"{item}/64").network.with_prefixlen
                     masked_items.add(f"IP-CIDR6,{net}")
@@ -197,7 +241,7 @@ def main():
             except Exception:
                 pass
                 
-    # 鎸夌収瑙勫垯鎺掑簭杈撳嚭
+    # 按照规则排序输出
     sorted_masked = sorted(list(masked_items))
     
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -209,4 +253,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
