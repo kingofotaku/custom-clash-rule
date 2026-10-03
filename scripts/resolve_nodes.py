@@ -1,4 +1,6 @@
 import os
+import sys
+import time
 import json
 import yaml
 import socket
@@ -167,33 +169,44 @@ def process_subscription(url):
         'User-Agent': 'clash.meta'
     }
     print(f"Fetching: {url}")
-    try:
-        resp = requests.get(url, headers=headers, timeout=30)
-        resp.raise_for_status()
-        resp.encoding = 'utf-8'
-        content = resp.text
-        
-        # 尝试作为 YAML 解析
-        parsed_servers = parse_clash_yaml(content)
-        if parsed_servers:
-            print(f"Parsed {len(parsed_servers)} unique server domains as YAML.")
-            servers.update(parsed_servers)
+    # 抓取失败时重试（含首次共 4 次），退避 5/10/15 秒，吸收瞬时网络抖动
+    attempts = 4
+    content = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = requests.get(url, headers=headers, timeout=30)
+            resp.raise_for_status()
+            resp.encoding = 'utf-8'
+            content = resp.text
+            break
+        except Exception as e:
+            print(f"Fetch attempt {attempt}/{attempts} failed for {url}: {e}")
+            if attempt < attempts:
+                time.sleep(attempt * 5)
+
+    if content is None:
+        print(f"Giving up on {url} after {attempts} attempts.")
+        return servers
+
+    # 尝试作为 YAML 解析
+    parsed_servers = parse_clash_yaml(content)
+    if parsed_servers:
+        print(f"Parsed {len(parsed_servers)} unique server domains as YAML.")
+        servers.update(parsed_servers)
+    else:
+        print("Content is not valid Clash YAML or contains 0 proxies. Attempting Base64 decode...")
+        # 部分机场对非 Clash 客户端下发 base64 内容，解码后可能是 YAML 或节点分享链接
+        decoded = decode_base64_text(content)
+        if decoded is None:
+            print(f"Not Base64 either. First 100 chars of response: {content[:100]}")
         else:
-            print("Content is not valid Clash YAML or contains 0 proxies. Attempting Base64 decode...")
-            # 部分机场对非 Clash 客户端下发 base64 内容，解码后可能是 YAML 或节点分享链接
-            decoded = decode_base64_text(content)
-            if decoded is None:
-                print(f"Not Base64 either. First 100 chars of response: {content[:100]}")
+            parsed_servers = parse_clash_yaml(decoded) or parse_node_uris(decoded)
+            if parsed_servers:
+                print(f"Parsed {len(parsed_servers)} unique servers from Base64 content.")
+                servers.update(parsed_servers)
             else:
-                parsed_servers = parse_clash_yaml(decoded) or parse_node_uris(decoded)
-                if parsed_servers:
-                    print(f"Parsed {len(parsed_servers)} unique servers from Base64 content.")
-                    servers.update(parsed_servers)
-                else:
-                    print("Base64 decoded, but no servers found inside.")
-    except Exception as e:
-        print(f"Failed to fetch {url}: {e}")
-    
+                print("Base64 decoded, but no servers found inside.")
+
     return servers
 
 def main():
@@ -208,8 +221,17 @@ def main():
         return
     
     all_servers = set()
+    failed = 0
     for url in urls:
-        all_servers.update(process_subscription(url))
+        servers = process_subscription(url)
+        if not servers:
+            failed += 1
+        all_servers.update(servers)
+
+    if failed:
+        # 任一订阅失败或为空则不更新白名单（保留上一版），并让 CI 失败以便察觉
+        print(f"{failed}/{len(urls)} subscriptions failed or empty, aborting without updating the whitelist.")
+        sys.exit(1)
     
     print(f"Total unique servers extracted: {len(all_servers)}")
     
