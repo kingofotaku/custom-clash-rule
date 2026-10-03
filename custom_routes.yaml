@@ -1,6 +1,23 @@
 payload:
+  - DOMAIN,26p.d.d.d.266nets.com
+  - DOMAIN,2sg.dickaws.top
+  - DOMAIN,4c2d5151.266nets.com
+  - DOMAIN,cf.090227.xyz
+  - DOMAIN,cf.877774.xyz
+  - DOMAIN,chuixuecf.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl1.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl10.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl13.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl15.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl17.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl2.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl20.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl22.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl5.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl6.blowingsnowclouds.cc
+  - DOMAIN,chuixuevl9.blowingsnowclouds.cc
   - DOMAIN,cloudflare.lingyucat.com
-  - IP-CIDR,104.18.35.0/24
+  - DOMAIN,newcar.dickaws.top
   - IP-CIDR,104.18.41.0/24
   - IP-CIDR,104.18.43.0/24
   - IP-CIDR,104.21.93.0/24
@@ -10,8 +27,6 @@ payload:
   - IP-CIDR,16.163.193.0/24
   - IP-CIDR,172.64.144.0/24
   - IP-CIDR,172.64.146.0/24
-  - IP-CIDR,172.64.152.0/24
-  - IP-CIDR,18.140.236.0/24
   - IP-CIDR,18.143.193.0/24
   - IP-CIDR,18.167.87.0/24
   - IP-CIDR,182.255.90.0/24
@@ -47,14 +62,17 @@ payload:
   - IP-CIDR6,2406:da18:1e53:dd00::/64
   - IP-CIDR6,2406:da18:237:ac00::/64
   - IP-CIDR6,2406:da18:af7:4801::/64
+  - IP-CIDR6,2406:da18:afa:9300::/64
   - IP-CIDR6,2406:da1c:886a:fa00::/64
   - IP-CIDR6,2406:da1e:c9f:5b00::/64
   - IP-CIDR6,2406:da1e:e7e:d902::/64
   - IP-CIDR6,2600:1f1c:831:c100::/64
+  - IP-CIDR6,2606:4700:4408::/64
   - IP-CIDR6,2a05:d014:1f4e:6600::/64
   - IP-CIDR6,2a05:d01c:a66:d500::/64
   - IP-CIDR6,2a06:98c1:3100::/64
   - IP-CIDR6,2a06:98c1:3102::/64
+  - IP-CIDR6,2a06:98c1:3109::/64
   - IP-CIDR6,2a06:98c1:310b::/64
   - IP-CIDR6,2a06:98c1:310d::/64
   - IP-CIDR6,2a13:9500:15c::/64
